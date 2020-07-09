@@ -1,0 +1,71 @@
+Sub QS7_WORKLIST_BUILDER()
+'
+' QS7_WORKLIST_BUILDER Macro
+'
+
+'
+    Application.ScreenUpdating = False
+    ActiveSheet.DisplayPageBreaks = False
+
+    Dim FSO As Object, myFile As Object
+    Dim fileName As String, Arr As Variant
+    Dim workName As String, rng As Range, cellValue As Variant, i As Integer, j As Integer
+    
+    Sheets("Sheet1").Range("A1:J500").Clear
+    
+    fileName = Application.GetOpenFilename()
+    Set FSO = CreateObject("Scripting.FileSystemObject")
+    Set myFile = FSO.OpenTextFile(fileName, 1)
+    Arr = Split(myFile.ReadAll, vbNewLine)
+    
+    Sheets("Sheet1").Select
+    Range("a1").Resize(UBound(Arr) + 1, 7).Select
+    Selection.Insert Shift:=xlDown, CopyOrigin:=xlFormatFromLeftOrAbove
+    Range("a1").Resize(UBound(Arr) + 1, 1).Select
+    Range("a1").Resize(UBound(Arr) + 1, 1).Value = Application.Transpose(Arr)
+    Selection.TextToColumns Destination:=Range("A1"), DataType:=xlDelimited, _
+    TextQualifier:=xlDoubleQuote, ConsecutiveDelimiter:=False, Tab:=True, _
+    Semicolon:=False, Comma:=True, Space:=False, Other:=True, OtherChar _
+    :="|", FieldInfo:=Array(Array(1, 1), Array(2, 1), Array(3, 1), Array(4, 1), Array(5, _
+    1), Array(6, 1)), TrailingMinusNumbers:=True
+    
+    Rows("1:1").Select
+    Application.CutCopyMode = False
+    Selection.Delete Shift:=xlUp
+    Columns("B:E").Select
+    Selection.Delete Shift:=xlToLeft
+    Columns("C:C").Select
+    Selection.Delete Shift:=xlToLeft
+    
+    Range("A1:b289").Select
+    
+    fileName = Right(fileName, 16)
+    workName = "\\labshared\neonatal1\Spinal Muscular Atrophy (SMA)\Results\Worklists\" & fileName
+
+    Set rng = Selection
+    Open workName For Output As #1
+    For i = 1 To rng.Rows.Count
+        If rng.Cells(i, 1) <> "" Then
+            For j = 1 To rng.Columns.Count
+                cellValue = rng.Cells(i, j).Value
+                If j = rng.Columns.Count Then
+                    If i > 43 Then
+                        If Len(cellValue) > Worksheets("Sheet2").Range("C18").Value And cellValue <> "EmptyWell" Then
+                            cellValue = Left(cellValue, Worksheets("Sheet2").Range("C18").Value)
+                        End If
+                    End If
+                Print #1, cellValue
+                Else
+                    Print #1, cellValue & vbTab;
+                End If
+            Next j
+        End If
+    Next i
+    Close #1
+    Application.ScreenUpdating = True
+    ActiveSheet.DisplayPageBreaks = True
+    
+    Sheets("Sheet2").Select
+    Range("B20").Value = fileName
+
+End Sub
