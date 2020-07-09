@@ -1,0 +1,874 @@
+Sub ControlKeeper()
+'
+' ControlKeeper Macro
+'
+
+'
+    'Store Controls to Controls Sheet
+    
+    Application.Calculation = xlManual
+    Application.ScreenUpdating = False
+    ActiveSheet.DisplayPageBreaks = False
+    
+    
+    If Range("K3") = "N" Then
+    
+        Sheets("Results").Select
+        Range("E47:n60").Select
+        
+        Sheets("Controls").Range("A1:M14").Insert Shift:=xlDown, CopyOrigin:=xlFormatFromLeftOrAbove
+        Sheets("Controls").Range("A1:M14").Value = Sheets("Results").Range("E47:n60").Value
+        Sheets("Controls").Range("k1:k14").Value = Sheets("Results").Range("g6").Value
+        Sheets("Controls").Range("l1:l14").Value = Sheets("Results").Range("g3").Value
+        Sheets("Controls").Range("m1:m14").Value = Sheets("Results").Range("g5").Value
+    End If
+    'Store results to All Results Sheet
+                
+    If Range("J3") = "N" Then
+        Sheets("Results").Select
+        Range("E61:n250").Select
+        Set rng = Selection
+        
+        For i = rng.Rows.count To 1 Step -1
+            If rng.Cells(i, 1).Value <> "EmptyWell" And rng.Cells(i, 1).Value <> "" Then
+                Sheets("All Results").Range("A1:M1").Insert Shift:=xlDown, CopyOrigin:=xlFormatFromLeftOrAbove
+                For j = 1 To rng.Columns.count
+                    Sheets("All Results").Range("a1:j1").Cells(1, j) = rng.Cells(i, j).Value
+                Next j
+                Sheets("All Results").Range("k1").Value = Sheets("Results").Range("g6").Value
+                Sheets("All Results").Range("l1").Value = Sheets("Results").Range("g3").Value
+                Sheets("All Results").Range("m1").Value = Sheets("Results").Range("g5").Value
+                
+            End If
+        Next i
+        
+        With ActiveWorkbook.Worksheets("All Results").Sort
+            .SetRange Range("A:M")
+            .Header = xlGuess
+            .MatchCase = False
+            .Orientation = xlTopToBottom
+            .SortMethod = xlPinYin
+            .Apply
+    End With
+    End If
+    
+    ThisWorkbook.Save
+    
+    Application.Calculation = xlAutomatic
+    Application.ScreenUpdating = True
+    ActiveSheet.DisplayPageBreaks = True
+End Sub
+
+Sub Save_file()
+'
+' Save_file Macro
+'
+    Worksheets("Results").Calculate
+    
+    Dim answer As Integer, count As Integer, runDate
+    Dim myFile As String, rng As Range, cellvalue As Variant, _
+    filename As String, i As Integer, j As Integer, Controls As Range, _
+    Results As Range, readname As String, abnormies As Integer
+    
+    Set Results = Sheets("Results").Range("E47:E200")
+    readname = Sheets("Results").Range("G3").Value
+    Set Controls = Sheets("Results").Range("E16:E23")
+    count = 0
+    abnormies = 0
+    For i = 0 To Results.Rows.count
+        If Controls.Find(Results(i, 1), LookIn:=xlValues) Is Nothing Then
+            count = count + 1 '
+            If Results(i, 1).Offset(0, 3).Value = "Y" And _
+                (Results(i, 1).Offset(0, 5).Value <> "Normal" _
+                Or Results(i, 1).Offset(0, 7).Value <> "Normal" _
+                Or Results(i, 1).Offset(0, 9).Value <> "Normal") Then
+            
+                abnormies = abnormies + 1
+            End If
+        End If
+    Next i
+    
+    
+    answer = MsgBox("The current plate contains " & count & " Specimens.  Of these " & Application.WorksheetFunction.CountIf(Sheets("Results").Range("H61:h250"), "Y") _
+    & " will be reported, including " & abnormies & " Abnormal Specimens.  Do you want to export?", vbQuestion + vbYesNo)
+    
+    Application.Calculation = xlManual
+    Application.ScreenUpdating = False
+    ActiveSheet.DisplayPageBreaks = False
+    
+    
+    
+    ' Create the Horizon Export file and save to main Lims Link folder
+    If answer = vbYes Then
+        
+
+        runDate = Sheets("Paste Results").Range("A:A").Find("* Experiment Run End Time *").Value
+        runDate = Left(Right(runDate, 27), 20) & ".000000000" & "|"
+
+        filename = Sheets("Results").Range("G8").Value
+        
+
+        myFile = "\\hewpedbprd\sgroot\Chemware_Export\" & filename & ".txt"
+        Open myFile For Output As #1
+        myFile = "\\hewpedbprd\sgroot\Chemware_Export\backup\" & filename & ".txt"
+        Open myFile For Output As #2
+        
+        
+        For i = Results.Rows.count To 1 Step -1
+            cellvalue = ""
+            If Controls.Find(Results(i, 1).Value, LookIn:=xlValues, lookat:=xlWhole) Is Nothing And (Results(i, 1).Offset(0, 3).Value = "Y" Or Results(i, 1).Offset(0, 3).Value = "y") Then
+                
+                For j = 1 To 6
+                    cellvalue = runDate & Results(i, 1).Value & "|"
+                    
+                    Select Case j
+                        Case 1
+                            cellvalue = cellvalue & "RNASEPnbs" & "|"
+                            
+                            Select Case Results(i, 1).Offset(0, 5).Value
+                                Case "Normal"
+                                    cellvalue = cellvalue & "RNASEPnbs-C-NORM" & "|"
+                                Case "Indeterminate"
+                                    cellvalue = cellvalue & "RNASEPnbs-C-IND" & "|"
+                            End Select
+                            
+                            cellvalue = cellvalue & Results(i, 1).Offset(0, 4).Value & "|"
+                            cellvalue = cellvalue & "|"
+                        Case 2
+
+                            cellvalue = cellvalue & "SMN1" & "|"
+                            Select Case Results(i, 1).Offset(0, 9).Value
+                                Case "Normal"
+                                    cellvalue = cellvalue & "SMN1-C-NORM" & "|"
+                                Case "Indeterminate"
+                                    cellvalue = cellvalue & "SMN1-C-IND" & "|"
+                                Case "Refer"
+                                    cellvalue = cellvalue & "SMN1-C-ELEV" & "|"
+                            End Select
+                            cellvalue = cellvalue & Results(i, 1).Offset(0, 8).Value & "|"
+                            cellvalue = cellvalue & "|"
+                        Case 3
+                            cellvalue = cellvalue & "SMA" & "|"
+                            Select Case Results(i, 1).Offset(0, 9).Value
+                                Case "Normal"
+                                    cellvalue = cellvalue & "SMA-C-NORM" & "|"
+                                Case "Indeterminate"
+                                    cellvalue = cellvalue & "SMA-C-IND" & "|"
+                                Case "Refer"
+                                    cellvalue = cellvalue & "SMA-C-1001" & "|"
+                            End Select
+                            cellvalue = cellvalue & 0 & "|"
+                            cellvalue = cellvalue & "SMN1 - <45; RNaseP - <=28|"
+                        Case 4
+
+                            cellvalue = cellvalue & "1290" & "|"
+                            Select Case Results(i, 1).Offset(0, 5).Value
+                                Case "Normal"
+                                    cellvalue = cellvalue & "RNaseP-C-NORM" & "|"
+                                Case "Indeterminate"
+                                    cellvalue = cellvalue & "RNaseP-C-IND" & "|"
+                            End Select
+                            cellvalue = cellvalue & Results(i, 1).Offset(0, 4).Value & "|"
+                            cellvalue = cellvalue & "|"
+                            
+                        Case 5
+
+                            cellvalue = cellvalue & "1289" & "|"
+                            Select Case Results(i, 1).Offset(0, 7).Value
+                                Case "Normal"
+                                    cellvalue = cellvalue & "TREC-C-NORM" & "|"
+                                Case "Indeterminate"
+                                    cellvalue = cellvalue & "TREC-C-IND" & "|"
+                                Case "Repeat"
+                                    cellvalue = cellvalue & "TREC-C-SELEV" & "|"
+                                Case "Refer"
+                                    cellvalue = cellvalue & "TREC-C-ELEV" & "|"
+                            End Select
+                            cellvalue = cellvalue & Results(i, 1).Offset(0, 6).Value & "|"
+                            cellvalue = cellvalue & "|"
+                        Case 6
+
+                            cellvalue = cellvalue & "1291" & "|"
+                            Select Case Results(i, 1).Offset(0, 7).Value
+                                Case "Normal"
+                                    cellvalue = cellvalue & "SCID_D-C-1001" & "|"
+                                Case "Indeterminate"
+                                    cellvalue = cellvalue & "SCID_D-C-1004" & "|"
+                                Case "Repeat"
+                                    cellvalue = cellvalue & "SCID_D-C-1002" & "|"
+                                Case "Refer"
+                                    cellvalue = cellvalue & "SCID_D-C-1003" & "|"
+                            End Select
+                            cellvalue = cellvalue & "0|"
+                            cellvalue = cellvalue & "TREC - <34; RNaseP - <=28|"
+                    End Select
+                    
+                    Print #1, cellvalue
+                    Print #2, cellvalue
+                Next j
+            End If
+        Next i
+
+        Close #1
+        Close #2
+        
+        
+        
+        'Save human readable result file as a backup
+        Sheets("Results").Select
+        filename = Range("G3")
+        Sheets("Results").Select
+        Range("e2:n122").Select
+        myFile = "\\labshared\neonatal1\Spinal Muscular Atrophy (SMA)\Results\Backup results files\" & filename & ".txt"
+        Set rng = Selection
+        Open myFile For Output As #1
+        For i = 1 To rng.Rows.count
+            For j = 1 To rng.Columns.count
+                cellvalue = rng.Cells(i, j).Value
+                If j = rng.Columns.count Then
+                    Print #1, cellvalue
+                Else
+                    Print #1, cellvalue & ",";
+                End If
+            Next j
+        Next i
+        Close #1
+        
+        Call ControlKeeper
+    
+    End If
+    
+    Application.Calculation = xlAutomatic
+    Application.ScreenUpdating = True
+    ActiveSheet.DisplayPageBreaks = True
+'
+End Sub
+
+Sub age_Reader()
+'
+' age_Reader Macro
+'
+    Application.ScreenUpdating = False
+    ActiveSheet.DisplayPageBreaks = False
+    Application.DisplayAlerts = False
+    
+    Dim myFile As String, myPath As String, i As Integer, j As Integer
+    Dim import As String
+    myPath = "\\hewpedbprd\sgroot\Data_Import\"
+    Dim FSO As Object, WholeFile As Object
+    Dim Arr As Variant, cellvalue As String
+    
+    cellvalue = ""
+    
+    For i = 10 To 0 Step -1
+        
+        myFile = Dir(myPath & "DailyDataImport-" & Application.Text(Date - i, "YYYY-MM-DD") & "*", vbNormal)
+        
+        While Len(myFile) > 0
+            
+            If Sheets("Ages").Range("H:H").Find(myFile, LookIn:=xlValues, lookat:=xlWhole) Is Nothing Then
+                Sheets("ages").Range("H1").Insert Shift:=xlDown
+                Sheets("ages").Range("H1").Value = myFile
+                import = myPath & myFile
+                
+                Set FSO = CreateObject("Scripting.FileSystemObject")
+                Set WholeFile = FSO.OpenTextFile(import, 1)
+                
+                Arr = Split(WholeFile.ReadAll, vbNewLine)
+                
+                Sheets("ages").Range("A1").Resize(UBound(Arr), 6).Insert Shift:=xlDown
+                Sheets("ages").Range("a1").Resize(UBound(Arr), 1).Value = Application.Transpose(Arr)
+                Sheets("ages").Range("A1").Resize(UBound(Arr), 1).TextToColumns Destination:=Range("A1"), DataType:=xlDelimited, _
+                    TextQualifier:=xlDoubleQuote, ConsecutiveDelimiter:=False, Tab:=True, _
+                    Semicolon:=False, Comma:=False, Space:=False, Other:=True, OtherChar _
+                    :="|", FieldInfo:=Array(Array(1, 1), Array(2, 1), Array(3, 1), Array(4, 1), Array(5, _
+                    1), Array(6, 1)), TrailingMinusNumbers:=True
+                    
+                cellvalue = import & ", " & cellvalue
+            End If
+            myFile = Dir
+        Wend
+    Next i
+    
+    myPath = myPath & "backup\"
+    
+    For i = 10 To 0 Step -1
+        myFile = Dir(myPath & "DailyDataImport-" & Application.Text(Date - i, "YYYY-MM-DD") & "*", vbNormal)
+        
+        While Len(myFile) > 0
+            
+            If Sheets("Ages").Range("H:H").Find(myFile, LookIn:=xlValues, lookat:=xlWhole) Is Nothing Then
+                Sheets("ages").Range("H1").Insert Shift:=xlDown
+                Sheets("ages").Range("H1").Value = myFile
+                import = myPath & myFile
+                
+                Set FSO = CreateObject("Scripting.FileSystemObject")
+                Set WholeFile = FSO.OpenTextFile(import, 1)
+                
+                Arr = Split(WholeFile.ReadAll, vbNewLine)
+                
+                Sheets("ages").Range("A1").Resize(UBound(Arr), 6).Insert Shift:=xlDown
+                Sheets("ages").Range("a1").Resize(UBound(Arr), 1).Value = Application.Transpose(Arr)
+                Sheets("ages").Range("A1").Resize(UBound(Arr), 1).TextToColumns Destination:=Range("A1"), DataType:=xlDelimited, _
+                    TextQualifier:=xlDoubleQuote, ConsecutiveDelimiter:=False, Tab:=True, _
+                    Semicolon:=False, Comma:=False, Space:=False, Other:=True, OtherChar _
+                    :="|", FieldInfo:=Array(Array(1, 1), Array(2, 1), Array(3, 1), Array(4, 1), Array(5, _
+                    1), Array(6, 1)), TrailingMinusNumbers:=True
+                    
+                cellvalue = import & ", " & cellvalue
+            End If
+            myFile = Dir
+        Wend
+    Next i
+    
+    If Len(cellvalue) >= 1 Then
+        MsgBox "Demographic files " & cellvalue & " successfully imported"
+    Else
+        MsgBox ("No new deomgraphic files to import")
+    End If
+
+   
+    Application.ScreenUpdating = True
+    ActiveSheet.DisplayPageBreaks = True
+    Application.DisplayAlerts = True
+
+'
+End Sub
+
+Sub import_click()
+    Call result_importer(Application.GetOpenFilename())
+End Sub
+Sub result_importer(filename As String)
+'
+' result_importer Macro
+'
+    On Error Resume Next
+    Dim FSO As Object, myFile As Object
+    Dim Arr As Variant
+    Dim Controls As Range, i As Integer, j As Integer
+    
+    'unprotect the sheet
+    ActiveSheet.Unprotect
+    
+    Sheets("Results").Range("D24:D45").EntireRow.Hidden = True
+    
+    Set Controls = Sheets("Results").Range("E16:E22")
+    
+    Application.ScreenUpdating = False
+    ActiveSheet.DisplayPageBreaks = False
+    Application.DisplayAlerts = False
+    
+    If filename = "" Then
+        Exit Sub
+    End If
+    
+    If filename <> False Then
+        Set FSO = CreateObject("Scripting.FileSystemObject")
+        Set myFile = FSO.OpenTextFile(filename, 1)
+        Arr = Split(myFile.ReadAll, vbNewLine)
+        Sheets("Paste Results").Select
+        Range("a1").Resize(UBound(Arr) + 1, 1).Select
+        Range("a1").Resize(UBound(Arr) + 1, 1).Value = Application.Transpose(Arr)
+        Selection.TextToColumns Destination:=Range("A1"), DataType:=xlDelimited, _
+        TextQualifier:=xlDoubleQuote, ConsecutiveDelimiter:=False, Tab:=True, _
+        Semicolon:=False, Comma:=False, Space:=False, Other:=False, OtherChar _
+        :="|", FieldInfo:=Array(Array(1, 1), Array(2, 1), Array(3, 1), Array(4, 1), Array(5, _
+        1), Array(6, 1)), TrailingMinusNumbers:=True
+        Sheets("Results").Select
+        
+    
+        Sheets("Results").Range("G3").Value = Right(Sheets("Paste Results").Range("A:A").Find("* Experiment Name =*"), _
+            Len(Sheets("Paste Results").Range("A:A").Find("* Experiment Name =*")) - _
+            InStr(1, Sheets("Paste Results").Range("A:A").Find("* Experiment Name =*"), "=") - 1)
+            
+        Sheets("Results").Range("G4").Value = Right(Sheets("Paste Results").Range("A:A").Find("* User Name =*"), _
+            Len(Sheets("Paste Results").Range("A:A").Find("* User Name =*")) - InStr(1, _
+            Sheets("Paste Results").Range("A:A").Find("* User Name =*"), "=") - 1)
+            
+        Sheets("Results").Range("G5").Value = Right(Sheets("Paste Results").Range("A:A").Find("* Instrument Name =*"), _
+            Len(Sheets("Paste Results").Range("A:A").Find("* Instrument Name =*")) - _
+            InStr(1, Sheets("Paste Results").Range("A:A").Find("* Instrument Name =*"), "=") - 1)
+            
+        Sheets("Results").Range("G6").Value = Right(Sheets("Paste Results").Range("A:A").Find("* Experiment Run End Time =*"), _
+            Len(Sheets("Paste Results").Range("A:A").Find("* Experiment Run End Time =*")) - _
+            InStr(1, Sheets("Paste Results").Range("A:A").Find("* Experiment Run End Time =*"), "=") - 1)
+            
+        Sheets("Results").Range("G7").Value = Right(Sheets("Paste Results").Range("A:A").Find("* Passive Reference = *"), _
+            Len(Sheets("Paste Results").Range("A:A").Find("* Passive Reference = *")) - _
+            InStr(1, Sheets("Paste Results").Range("A:A").Find("* Passive Reference = *"), "=") - 1)
+    
+    
+        
+        Sheets("Results").Range("E47:N250").Value = ""
+        With Sheets("Results").Range("e47:n250").EntireRow.Interior
+            .Pattern = xlNone
+            .TintAndShade = 0
+            .PatternTintAndShade = 0
+        End With
+        
+        Sheets("Results").Range("47:250").EntireRow.Hidden = False
+        
+        
+        
+        ' Build the plate well names
+    
+        For j = 1 To 12
+            For i = 1 To 8
+                Sheets("Results").Range("f46").Offset((i - 1) * 12 + j, 0).Value = Chr(i + 64) & j
+            Next i
+        Next j
+        
+        ' Import the results from the Paste Results Sheet
+        
+        For Each Cell In Sheets("Results").Range("f47:f150")
+            
+            Cell.Offset(0, -1).Value = Sheets("Paste Results").Range("A1:B350").Find(Cell.Value, LookIn:=xlValues, lookat:=xlWhole).Offset(0, 2).Value
+        
+            For i = 1 To 3
+                If Sheets("Paste Results").Range("b:b").Find(Cell.Value, LookIn:=xlValues, lookat:=xlWhole).Offset(3 - i, 3).Value = "RNaseP" Then
+                
+                    If Sheets("Paste Results").Range("b:b").Find(Cell.Value, LookIn:=xlValues, lookat:=xlWhole).Offset(3 - i, 7).Value = "Undetermined" Then
+                        Cell.Offset(0, 3).Value = 45
+                    Else
+                        Cell.Offset(0, 3).Value = Sheets("Paste Results").Range("b:b").Find(Cell.Value, LookIn:=xlValues, lookat:=xlWhole).Offset(3 - i, 7).Value
+                    End If
+                ElseIf Sheets("Paste Results").Range("b:b").Find(Cell.Value, LookIn:=xlValues, lookat:=xlWhole).Offset(3 - i, 3).Value = "TREC" Then
+                
+                    If Sheets("Paste Results").Range("b:b").Find(Cell.Value, LookIn:=xlValues, lookat:=xlWhole).Offset(3 - i, 7).Value = "Undetermined" Then
+                        Cell.Offset(0, 5).Value = 45
+                    Else
+                        Cell.Offset(0, 5).Value = Sheets("Paste Results").Range("b:b").Find(Cell.Value, LookIn:=xlValues, lookat:=xlWhole).Offset(3 - i, 7).Value
+                    End If
+                ElseIf Sheets("Paste Results").Range("b:b").Find(Cell.Value, LookIn:=xlValues, lookat:=xlWhole).Offset(3 - i, 3).Value = "SMN-1" Then
+                
+                    If Sheets("Paste Results").Range("b:b").Find(Cell.Value, LookIn:=xlValues, lookat:=xlWhole).Offset(3 - i, 7).Value = "Undetermined" Then
+                        Cell.Offset(0, 7).Value = 45
+                    Else
+                        Cell.Offset(0, 7).Value = Sheets("Paste Results").Range("b:b").Find(Cell.Value, LookIn:=xlValues, lookat:=xlWhole).Offset(3 - i, 7).Value
+                    End If
+                End If
+            Next i
+            
+        
+            
+            'find demographic information
+            If Controls.Find(Cell.Offset(0, -1).Value, LookIn:=xlValues, lookat:=xlWhole) Is Nothing _
+                And Not Sheets("Ages").Range("A:a").Find(Cell.Offset(0, -1).Value, LookIn:=xlValues, lookat:=xlWhole) Is Nothing Then
+                
+                Cell.Offset(0, 1).Value = Sheets("Ages").Range("A:a").Find(Cell.Offset(0, -1).Value, LookIn:=xlValues, lookat:=xlWhole).Offset(0, 1).Value
+            Else
+            
+                Cell.Offset(0, 1).Value = ""
+            End If
+            
+            'lock the results cells
+            Cell.Offset(0, 3).Locked = True
+            Cell.Offset(0, 5).Locked = True
+            Cell.Offset(0, 7).Locked = True
+            
+            If Cell.Value = "" Then
+                Cell.Offset(1, 0).Select
+                Range(Selection, Selection.End(xlDown)).Select
+                Selection.EntireRow.Hidden = True
+                Exit For
+            End If
+            
+        Next Cell
+        Call result_calc
+    End If
+    
+    'protect the sheet
+    ActiveSheet.Protect DrawingObjects:=True, Contents:=True, Scenarios:=True
+    
+    Application.ScreenUpdating = True
+    ActiveSheet.DisplayPageBreaks = True
+    Application.DisplayAlerts = True
+    
+End Sub
+
+
+
+Sub Missing_Demo()
+    Dim HSN As Variant, answer As Integer
+    HSN = InputBox("What HSN are you looking for?")
+    
+    On Error Resume Next
+    Dim FSO As Object, myFile As Object
+    Dim filename As String, Arr As Variant
+    Dim i As Integer, j As Integer
+    
+    
+    Application.ScreenUpdating = False
+    ActiveSheet.DisplayPageBreaks = False
+    Application.DisplayAlerts = False
+    
+    If Sheets("All Results").Range("A:A").Find(HSN) Is Nothing Or HSN = "" Then
+        MsgBox ("HSN " & HSN & " not found.")
+        Exit Sub
+    End If
+    
+    filename = "\\labshared\neonatal1\Spinal Muscular Atrophy (SMA)\Results\Instrument Files\" _
+        & Trim(Sheets("All Results").Range("A:A").Find(HSN, LookIn:=xlValues, lookat:=xlWhole).Offset(0, 12).Value) & _
+        "\" & Trim(Sheets("All Results").Range("A:A").Find(HSN, LookIn:=xlValues, lookat:=xlWhole).Offset(0, 11).Value) & ".txt"
+    
+    If filename <> False And Dir(filename) <> "" Then
+    
+        MsgBox ("sample has been found on plate " & Dir(filename))
+        
+        Call result_importer(filename)
+        
+        Call result_calc
+        
+        
+        For Each Cell In Sheets("Results").Range("E47:e250")
+            
+            If Cell.Value = "" Then Exit For
+            If Cell.Value & "" = HSN & "" Then
+                Cell.Offset(0, 3).Value = "Y"
+            Else
+                Cell.Offset(0, 3).Value = "N"
+            End If
+            If Cell.Offset(0, 1).Value = "Conf" Then
+                Cell.Offset(-1, 3).Value = "N"
+                Cell.Offset(-2, 3).Value = "N"
+            End If
+            
+        Next Cell
+    End If
+    
+    Application.ScreenUpdating = True
+    ActiveSheet.DisplayPageBreaks = True
+    Application.DisplayAlerts = True
+    
+    
+
+End Sub
+
+Sub result_calc()
+'
+' test Macro
+    Dim Controls As Range, i As Integer, j As Integer
+    Dim Confirmations As Integer
+    
+    Application.ScreenUpdating = False
+    ActiveSheet.DisplayPageBreaks = False
+    Application.DisplayAlerts = False
+    
+    
+    Confirmations = 0
+    Set Controls = Sheets("Results").Range("E16:E22")
+
+    'unpotect the sheet
+    ActiveSheet.Unprotect
+
+    With Sheets("Results").Range("e47:n250").EntireRow.Interior
+        .Pattern = xlNone
+        .TintAndShade = 0
+        .PatternTintAndShade = 0
+    End With
+    
+    Sheets("Results").Range("D24:D45").EntireRow.Hidden = True
+    
+    Sheets("Results").Range("E47:n250").EntireRow.Font.Bold = False
+    
+    For Each Cell In Sheets("Results").Range("f47:f200")
+        Cell.EntireRow.Locked = False
+        
+        If Cell.Value = "" Then
+            Cell.Offset(1, 0).Select
+            Range(Selection, Selection.End(xlDown)).Select
+            Selection.EntireRow.Hidden = True
+            Selection.EntireRow.Delete
+            Exit For
+        End If
+        
+        'Clear left over results info
+        Cell.Offset(0, 4).Value = ""
+        Cell.Offset(0, 6).Value = ""
+        Cell.Offset(0, 8).Value = ""
+        'check if the demographics are present and find them if they are not
+        If Cell.Offset(0, 1).Value = "" Then
+            'find demographic information
+            If Controls.Find(Cell.Offset(0, -1).Value, LookIn:=xlValues, lookat:=xlWhole) Is Nothing _
+                And Not Sheets("Ages").Range("A:a").Find(Cell.Offset(0, -1).Value, LookIn:=xlValues, lookat:=xlWhole) Is Nothing Then
+    
+                Cell.Offset(0, 1).Value = Sheets("Ages").Range("A:a").Find(Cell.Offset(0, -1).Value, LookIn:=xlValues, lookat:=xlWhole).Offset(0, 1).Value
+            Else
+    
+                Cell.Offset(0, 1).Value = ""
+            End If
+        End If
+        'check if the demographics are present and find them if they are not
+        If Cell.Offset(0, 1).Value = "" Then
+            'find demographic information
+            If Controls.Find(Cell.Offset(0, -1).Value, LookIn:=xlValues, lookat:=xlWhole) Is Nothing _
+                And Not Sheets("Ages").Range("A:a").Find(Cell.Offset(0, -1).Value, LookIn:=xlValues, lookat:=xlWhole) Is Nothing Then
+    
+                Cell.Offset(0, 1).Value = Sheets("Ages").Range("A:a").Find(Cell.Offset(0, -1).Value, LookIn:=xlValues, lookat:=xlWhole).Offset(0, 1).Value
+            Else
+    
+                Cell.Offset(0, 1).Value = ""
+            End If
+        End If
+
+    
+        'Check if the sample is a control and if so check the values against the control values. Exclude anything less than row 27
+        If Not Controls.Find(Cell.Offset(0, -1).Value, LookIn:=xlValues, lookat:=xlWhole) Is Nothing And Cell.Row < 61 Then
+            Cell.Offset(0, 2).Value = "Y"
+            
+            'Check RNaseP value for Controls
+            If Cell.Offset(0, 3).Value < Sheets("Controls").Range("S16:S25").Find(Cell.Offset(0, -1).Value, LookIn:=xlValues, lookat:=xlWhole).Offset(0, 1).Value _
+            Or Cell.Offset(0, 3).Value > Sheets("Controls").Range("S16:S25").Find(Cell.Offset(0, -1).Value, LookIn:=xlValues, lookat:=xlWhole).Offset(0, 2).Value _
+            Then
+            
+                Cell.Offset(0, 4).Value = "ONL"
+                Cell.Offset(0, 2).Value = "N"
+                
+            End If
+            
+            ' Check TREC Value for Controls
+            If Cell.Offset(0, 5).Value < Sheets("Controls").Range("S16:S25").Find(Cell.Offset(0, -1).Value, LookIn:=xlValues, lookat:=xlWhole).Offset(0, 3).Value _
+            Or Cell.Offset(0, 5).Value > Sheets("Controls").Range("S16:S25").Find(Cell.Offset(0, -1).Value, LookIn:=xlValues, lookat:=xlWhole).Offset(0, 4).Value _
+            Then
+            
+                Cell.Offset(0, 6).Value = "ONL"
+                Cell.Offset(0, 2).Value = "N"
+
+                
+            End If
+            
+            'Check SMN-1 Value for Controls
+            If Cell.Offset(0, 7).Value < Sheets("Controls").Range("S16:S25").Find(Cell.Offset(0, -1).Value, LookIn:=xlValues, lookat:=xlWhole).Offset(0, 5).Value _
+            Or Cell.Offset(0, 7).Value > Sheets("Controls").Range("S16:S25").Find(Cell.Offset(0, -1).Value, LookIn:=xlValues, lookat:=xlWhole).Offset(0, 6).Value _
+            Then
+            
+                Cell.Offset(0, 8).Value = "ONL"
+                Cell.Offset(0, 2).Value = "N"
+
+                
+            End If
+            
+        ElseIf Controls.Find(Cell.Offset(0, -1).Value, LookIn:=xlValues, lookat:=xlWhole) Is Nothing And Cell.Offset(0, -1).Value <> "" Then
+        'This Sample isn't a control so first we check the weight to determine the cutoffs we need.
+            Cell.Offset(0, 2).Value = "Y"
+            If Cell.Offset(0, 1).Value = 0 Then
+            'No Weight
+                Cell.Offset(0, 2).Value = "N"
+                Cell.Offset(0, 4).Value = "No Weight"
+                Cell.Offset(0, 6).Value = "No Weight"
+                Cell.Offset(0, 8).Value = "No Weight"
+            ElseIf Cell.Offset(0, 1).Value < Sheets("Results").Range("E13").Value Then
+            'First is low weight samples
+                If Cell.Offset(0, 3).Value >= Sheets("Results").Range("f12").Value Then
+                'Check RNAseP first.  If it's above the cutoff the Value is ONL and the sample is indeterminate
+                    Cell.Offset(0, 4).Value = "Indeterminate"
+
+                    Cell.Offset(0, 6).Value = "Indeterminate"
+
+                    Cell.Offset(0, 8).Value = "Indeterminate"
+
+                    Cell.Offset(0, 2).Value = "N"
+
+                Else
+                    Cell.Offset(0, 4).Value = "Normal"
+                'if RNaseP is in then move on to looking at TREC
+                    If Cell.Offset(0, 5).Value >= Sheets("Results").Range("J12") Then
+                    ' Refer Value
+                        Cell.Offset(0, 6).Value = "Refer"
+
+                        Cell.Offset(0, 2).Value = "N"
+                        
+
+                        
+                    ElseIf Cell.Offset(0, 5).Value >= Sheets("Results").Range("h12") Then
+                    ' repeat value
+                        Cell.Offset(0, 6).Value = "Repeat"
+
+                        Cell.Offset(0, 2).Value = "N"
+                        
+
+                    Else
+                        Cell.Offset(0, 6).Value = "Normal"
+                    End If
+                    
+                    'Then look at SMN-1
+                    If Cell.Offset(0, 7).Value >= 44 Then
+                    ' Refer Value
+                        Cell.Offset(0, 8).Value = "Refer"
+
+                        Cell.Offset(0, 2).Value = "N"
+                        
+
+                    Else
+                        Cell.Offset(0, 8).Value = "Normal"
+                    End If
+                    
+                End If
+            ElseIf Cell.Offset(0, 1).Value >= Sheets("Results").Range("E13").Value Then
+            'Normal Weight
+            
+                If Cell.Offset(0, 3).Value >= Sheets("Results").Range("f13").Value Then
+                'Check RNAseP first.  If it's above the cutoff the Value is ONL and the sample is indeterminate
+                    Cell.Offset(0, 4).Value = "Indeterminate"
+
+                    Cell.Offset(0, 6).Value = "Indeterminate"
+
+                    Cell.Offset(0, 8).Value = "Indeterminate"
+
+                    Cell.Offset(0, 2).Value = "N"
+                    
+
+                Else
+                    Cell.Offset(0, 4).Value = "Normal"
+                'if RNaseP is in then move on to looking at TREC and SMN-1
+                    If Cell.Offset(0, 5).Value >= Sheets("Results").Range("J13") Then
+                    ' Refer Value
+                        Cell.Offset(0, 6).Value = "Refer"
+
+                        Cell.Offset(0, 2).Value = "N"
+                        
+
+                    ElseIf Cell.Offset(0, 5).Value >= Sheets("Results").Range("h13") Then
+                    ' repeat value
+                        Cell.Offset(0, 6).Value = "Repeat"
+
+                        Cell.Offset(0, 2).Value = "N"
+
+                    Else
+                        Cell.Offset(0, 6).Value = "Normal"
+                        
+                    End If
+                    
+                    'Then look at SMN-1
+                    If Cell.Offset(0, 7).Value >= 44 Then
+                    ' Refer Value
+                        Cell.Offset(0, 8).Value = "Refer"
+
+                        Cell.Offset(0, 2).Value = "N"
+                        
+
+                    Else
+                        Cell.Offset(0, 8).Value = "Normal"
+                    End If
+                    
+                End If
+            End If
+
+
+        End If
+        
+        'Add in a line if the sample is a duplicate of the above row
+        
+        If Cell.Offset(-1, -1).Value = Cell.Offset(0, -1).Value And _
+        Controls.Find(Cell.Offset(0, -1).Value, LookIn:=xlValues, lookat:=xlWhole) Is Nothing _
+        And Cell.Value <> "Conf" And Cell.Offset(0, -1) <> "" And Cell.Offset(1, 0).Value <> "Conf" _
+        And Cell.Offset(0, -1).Value <> Cell.Offset(1, -1) Then
+            
+            Cell.Offset(1, -1).EntireRow.Insert
+            Cell.Offset(1, -1).Value = Cell.Offset(0, -1).Value
+            Cell.Offset(1, 0).Value = "Conf"
+            
+            'cell.Offset(0, 2).Value = "N"
+            'cell.Offset(-1, 2).Value = "N"
+            For i = 0 To (Cell.Row - Sheets("Results").Range("E47:e250").Find(Cell.Offset(0, -1).Value, LookIn:=xlValues).Row)
+                Cell.Offset(1, 3) = Cell.Offset(1, 3) + Cell.Offset(-i, 3)
+                Cell.Offset(1, 5) = Cell.Offset(1, 5) + Cell.Offset(-i, 5)
+                Cell.Offset(1, 7) = Cell.Offset(1, 7) + Cell.Offset(-i, 7)
+                Cell.Offset(-i, 0).EntireRow.Font.Bold = False
+                Cell.Offset(-i, 2).Value = "N"
+            Next i
+                Cell.Offset(1, 3) = Cell.Offset(1, 3) / i
+                Cell.Offset(1, 5) = Cell.Offset(1, 5) / i
+                Cell.Offset(1, 7) = Cell.Offset(1, 7) / i
+            
+        End If
+        
+        'lock the result cells
+        Cell.Offset(0, 3).Locked = True
+        Cell.Offset(0, 5).Locked = True
+        Cell.Offset(0, 7).Locked = True
+        
+        
+        'Copy the confirmation results to cells above the main report area.
+
+        
+        If (Cell.Offset(0, 4).Value <> "Normal" Or Cell.Offset(0, 6).Value <> "Normal" Or _
+            Cell.Offset(0, 8).Value <> "Normal") _
+            And (Cell.Offset(0, 4).Value <> "" Or Cell.Offset(0, 6).Value <> "" Or _
+            Cell.Offset(0, 8).Value <> "") Then
+            
+            Cell.EntireRow.Font.Bold = True
+        End If
+        
+        If Cell.Offset(0, 0).Value = "Conf" Then
+            Cell.Offset(-2, 0).EntireRow.Font.Bold = False
+            Cell.Offset(-1, 0).EntireRow.Font.Bold = False
+            Cell.EntireRow.Font.Bold = True
+            Cell.Offset(-2, 2).Value = "N"
+            Cell.Offset(-1, 2).Value = "N"
+            Cell.Offset(0, 2).Value = "Y"
+            
+        End If
+        
+        If Cell.Value = "Conf" And Confirmations < 5 Then
+            Sheets("Results").Range("E25").Offset((Confirmations * 3), 0).Value = Cell.Offset(0, -1).Value
+            Sheets("Results").Range("E25").Offset((Confirmations * 3), 1).Value = Cell.Offset(0, 0).Value
+            Sheets("Results").Range("E25").Offset((Confirmations * 3), 2).Value = Cell.Offset(0, 1).Value
+            Sheets("Results").Range("E25").Offset((Confirmations * 3), 3).Value = Cell.Offset(0, 2).Value
+            Sheets("Results").Range("E25").Offset((Confirmations * 3), 4).Value = Cell.Offset(0, 3).Value
+            Sheets("Results").Range("E25").Offset((Confirmations * 3), 5).Value = Cell.Offset(0, 4).Value
+            Sheets("Results").Range("E25").Offset((Confirmations * 3), 6).Value = Cell.Offset(0, 5).Value
+            Sheets("Results").Range("E25").Offset((Confirmations * 3), 7).Value = Cell.Offset(0, 6).Value
+            Sheets("Results").Range("E25").Offset((Confirmations * 3), 8).Value = Cell.Offset(0, 7).Value
+            Sheets("Results").Range("E25").Offset((Confirmations * 3), 9).Value = Cell.Offset(0, 8).Value
+            
+            Sheets("Results").Range("E25").Offset((Confirmations * 3 - 1), 0).EntireRow.Hidden = False
+            Sheets("Results").Range("E25").Offset((Confirmations * 3), 0).EntireRow.Hidden = False
+            Sheets("Results").Range("E25").Offset((Confirmations * 3), 0).EntireRow.Font.Bold = True
+            Sheets("Results").Range("E25").Offset((Confirmations * 3 + 1), 0).EntireRow.Hidden = False
+            Confirmations = Confirmations + 1
+        End If
+        
+
+    Next Cell
+    
+    Range("D1").Select
+    'protect the sheet
+    ActiveSheet.Protect DrawingObjects:=True, Contents:=True, Scenarios:=True
+    
+    Application.Calculation = xlAutomatic
+    Application.ScreenUpdating = True
+    ActiveSheet.DisplayPageBreaks = True
+'
+End Sub
+
+Sub test()
+    Dim expname As String, analyst As String
+    Dim instname As String, datecom As String
+
+    
+    Sheets("Results").Range("G3").Value = Right(Sheets("Paste Results").Range("A:A").Find("* Experiment Name =*"), _
+        Len(Sheets("Paste Results").Range("A:A").Find("* Experiment Name =*")) - _
+        InStr(1, Sheets("Paste Results").Range("A:A").Find("* Experiment Name =*"), "=") - 1)
+        
+    Sheets("Results").Range("G4").Value = Right(Sheets("Paste Results").Range("A:A").Find("* User Name =*"), _
+        Len(Sheets("Paste Results").Range("A:A").Find("* User Name =*")) - InStr(1, _
+        Sheets("Paste Results").Range("A:A").Find("* User Name =*"), "=") - 1)
+        
+    Sheets("Results").Range("G5").Value = Right(Sheets("Paste Results").Range("A:A").Find("* Instrument Name =*"), _
+        Len(Sheets("Paste Results").Range("A:A").Find("* Instrument Name =*")) - _
+        InStr(1, Sheets("Paste Results").Range("A:A").Find("* Instrument Name =*"), "=") - 1)
+        
+    Sheets("Results").Range("G6").Value = Right(Sheets("Paste Results").Range("A:A").Find("* Experiment Run End Time =*"), _
+        Len(Sheets("Paste Results").Range("A:A").Find("* Experiment Run End Time =*")) - _
+        InStr(1, Sheets("Paste Results").Range("A:A").Find("* Experiment Run End Time =*"), "=") - 1)
+        
+    Sheets("Results").Range("G7").Value = Right(Sheets("Paste Results").Range("A:A").Find("* Passive Reference = *"), _
+        Len(Sheets("Paste Results").Range("A:A").Find("* Passive Reference = *")) - _
+        InStr(1, Sheets("Paste Results").Range("A:A").Find("* Passive Reference = *"), "=") - 1)
+
+    
+End Sub
+
+
+
